@@ -129,7 +129,7 @@ async def test_manager_filters(graphapi_post: GraphAPIPost, filter, expected) ->
         return
 
     manager_query = """
-        query OrgUnitManagers($filter: ManagerFilter!) {
+        query OrgUnitManagers($filter: OrgUnitsboundmanagerfilter!) {
             org_units(filter: {uuids: "9d07123e-47ac-4a9a-88c8-da82e3a4bc9e"}) {
                 objects {
                     current {

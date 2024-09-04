@@ -7,10 +7,13 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from functools import lru_cache
+from textwrap import dedent
+from typing import Annotated
 from typing import Any
 from typing import cast as tcast
 from uuid import UUID
 
+import strawberry
 from more_itertools import flatten
 from more_itertools import unique_everseen
 from pydantic import ValidationError
@@ -479,6 +482,23 @@ async def manager_resolver(
     filter: ManagerFilter | None = None,
     limit: LimitType = None,
     cursor: CursorType = None,
+    inherit: Annotated[
+        bool,
+        strawberry.argument(
+            description=dedent(
+                """\
+                    Whether to inherit owner roles or not.
+
+                    If owner roles exist directly on this organisaion unit, the flag does nothing and these owner roles are returned.
+                    However if no owner roles exist directly, and this flag is:
+                    * Not set: An empty list is returned.
+                    * Is set: The result from calling `owners` with `inherit=True` on the parent of this organistion unit is returned.
+
+                    Calling with `inherit=True` can help ensure that an owner is always found.
+                    """
+            )
+        ),
+    ] = False,
 ) -> Any:
     """Resolve managers."""
     if filter is None:
@@ -494,8 +514,7 @@ async def manager_resolver(
     if filter.responsibility is not None:
         class_filter = filter.responsibility or ClassFilter()
         kwargs["opgaver"] = await filter2uuids_func(class_resolver, info, class_filter)
-
-    return await generic_resolver(
+    result = await generic_resolver(
         ManagerRead,
         info=info,
         filter=filter,
@@ -503,6 +522,18 @@ async def manager_resolver(
         cursor=cursor,
         **kwargs,
     )
+    if result or not inherit:
+        return result
+
+    org_unit = await organisation_unit_resolver(
+        info, OrganisationUnitFilter(uuids=filter.org_units)
+    )
+    if not org_unit:
+        return []
+    org_unit_as_list = list(flatten(org_unit.values()))
+    filter.org_units = [org_unit_as_list[0].parent_uuid]
+
+    return await manager_resolver(info, filter=filter, inherit=True)
 
 
 async def owner_resolver(
