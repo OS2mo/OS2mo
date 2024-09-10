@@ -56,6 +56,91 @@ def test_query_all(graphapi_post: GraphAPIPost):
 
 @pytest.mark.integration_test
 @pytest.mark.usefixtures("fixture_db")
+def test_query_inherit(graphapi_post: GraphAPIPost):
+    """Test that we can query, using the `inherit`-flag."""
+
+    person_uuid = "53181ed2-f1de-4c4a-a8fd-ab358c2c454a" # Anders And
+
+    create_manager = graphapi_post(
+        """
+        mutation CreateManager($input: ManagerCreateInput!) {
+          manager_create(input: $input) {
+            uuid
+          }
+        }
+        """,
+        variables={
+            "input": {
+                "person": person_uuid,
+                "responsibility": ["4311e351-6a3c-4e7e-ae60-8a3b2938fbd6"],
+                "org_unit": "2874e1dc-85e6-4269-823a-e1125484dfd3",
+                "manager_level": "ca76a441-6226-404f-88a9-31e02e420e52",
+                "manager_type": "32547559-cfc1-4d97-94c6-70b192eff825",
+                "validity": {"from": "2021-01-01"},
+            }
+        },
+    )
+
+
+    assert create_manager.errors is None
+    assert create_manager.data is not None
+    uuid = create_manager.data["manager_create"]["uuid"]
+
+    child_units = (
+        "b688513d-11f7-4efc-b679-ab082a2055d0",  # Samfundsvidenskabelige fakultet
+        "68c5d78e-ae26-441f-a143-0103eca8b62a", # something
+    )
+
+    query = """
+        query Read($child_uuids: [UUID!]){
+            org_units(filter: { uuids: $child_uuids }) {
+                objects {
+                    current {
+                        managers(inherit: true) {
+                            uuid
+                        }
+                    }
+                }
+            }
+        }
+    """
+
+    response = graphapi_post(query, variables={"child_uuids": child_units})
+
+    assert response.errors is None
+    assert response.data
+
+
+    org_units = response.data["org_units"]["objects"]
+    for org_unit in org_units:
+        assert org_unit["current"]["managers"][0]["uuid"] == uuid
+        
+    query2 = """
+        query Read($child_uuids: [UUID!]) {
+            managers(filter: { org_unit: { uuids: $child_uuids } }, inherit: true) {
+                objects {
+                    current {
+                        person {
+                            uuid
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    """
+    response2 = graphapi_post(query2, variables={"child_uuids": child_units})
+
+    print(response2)
+
+    assert response2.errors is None
+    assert response2.data
+
+
+
+
+@pytest.mark.integration_test
+@pytest.mark.usefixtures("fixture_db")
 @pytest.mark.parametrize(
     "filter,expected",
     [

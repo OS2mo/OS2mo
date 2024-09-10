@@ -487,14 +487,14 @@ async def manager_resolver(
         strawberry.argument(
             description=dedent(
                 """\
-                    Whether to inherit owner roles or not.
+                    Whether to inherit managerial roles or not.
 
-                    If owner roles exist directly on this organisaion unit, the flag does nothing and these owner roles are returned.
-                    However if no owner roles exist directly, and this flag is:
+                    If managerial roles exist directly on this organisation unit, the flag does nothing and these managerial roles are returned.
+                    However if no managerial roles exist directly, and this flag is:
                     * Not set: An empty list is returned.
-                    * Is set: The result from calling `owners` with `inherit=True` on the parent of this organistion unit is returned.
+                    * Is set: The result from calling `managers` with `inherit=True` on the parent of this organistion unit is returned.
 
-                    Calling with `inherit=True` can help ensure that an owner is always found.
+                    Calling with `inherit=True` can help ensure that a manager is always found.
                     """
             )
         ),
@@ -525,13 +525,17 @@ async def manager_resolver(
     if result or not inherit:
         return result
 
-    org_unit = await organisation_unit_resolver(
-        info, OrganisationUnitFilter(uuids=filter.org_units)
+    org_units = await organisation_unit_resolver(
+        info, OrganisationUnitFilter(uuids=kwargs["tilknyttedeenheder"])
     )
-    if not org_unit:
+
+    print(org_units)
+    if not org_units:
         return []
-    org_unit_as_list = list(flatten(org_unit.values()))
-    filter.org_units = [org_unit_as_list[0].parent_uuid]
+    org_unit_as_list = list(flatten(org_units.values()))
+    filter.org_units = [org_unit.parent_uuid for org_unit in org_unit_as_list]
+    print("xxxxxxxxxxxxxxxx")
+    print(filter)
 
     return await manager_resolver(info, filter=filter, inherit=True)
 
