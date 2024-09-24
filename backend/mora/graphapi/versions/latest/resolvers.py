@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
 import re
+from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime
 from datetime import timedelta
@@ -511,6 +512,19 @@ async def manager_resolver(
         kwargs["tilknyttedebrugere"] = await get_employee_uuids(info, filter)
     if filter.org_units is not None or filter.org_unit is not None:
         kwargs["tilknyttedeenheder"] = await get_org_unit_uuids(info, filter)
+        combined_results = defaultdict(list)
+
+        if len(kwargs["tilknyttedeenheder"]) > 1:
+            for org_unit in kwargs["tilknyttedeenheder"]:
+                manager_result = await manager_resolver(
+                    info, filter=ManagerFilter(org_units=[org_unit]), inherit=True
+                )
+                if manager_result:
+                    for uuid, managers in manager_result.items():
+                        combined_results[uuid].extend(managers)
+
+        if combined_results:
+            return combined_results
     if filter.responsibility is not None:
         class_filter = filter.responsibility or ClassFilter()
         kwargs["opgaver"] = await filter2uuids_func(class_resolver, info, class_filter)
@@ -528,16 +542,13 @@ async def manager_resolver(
     org_units = await organisation_unit_resolver(
         info, OrganisationUnitFilter(uuids=kwargs["tilknyttedeenheder"])
     )
-
-    print(org_units)
     if not org_units:
         return []
     org_unit_as_list = list(flatten(org_units.values()))
-    filter.org_units = [org_unit.parent_uuid for org_unit in org_unit_as_list]
-    print("xxxxxxxxxxxxxxxx")
-    print(filter)
-
-    return await manager_resolver(info, filter=filter, inherit=True)
+    new_org_units = [org_unit.parent_uuid for org_unit in org_unit_as_list]
+    return await manager_resolver(
+        info, filter=ManagerFilter(org_units=new_org_units), inherit=True
+    )
 
 
 async def owner_resolver(

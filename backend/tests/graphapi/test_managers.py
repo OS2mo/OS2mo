@@ -59,7 +59,7 @@ def test_query_all(graphapi_post: GraphAPIPost):
 def test_query_inherit(graphapi_post: GraphAPIPost):
     """Test that we can query, using the `inherit`-flag."""
 
-    person_uuid = "53181ed2-f1de-4c4a-a8fd-ab358c2c454a" # Anders And
+    person_uuid = "53181ed2-f1de-4c4a-a8fd-ab358c2c454a"  # Anders And
 
     create_manager = graphapi_post(
         """
@@ -81,14 +81,13 @@ def test_query_inherit(graphapi_post: GraphAPIPost):
         },
     )
 
-
     assert create_manager.errors is None
     assert create_manager.data is not None
     uuid = create_manager.data["manager_create"]["uuid"]
 
     child_units = (
         "b688513d-11f7-4efc-b679-ab082a2055d0",  # Samfundsvidenskabelige fakultet
-        "68c5d78e-ae26-441f-a143-0103eca8b62a", # something
+        "68c5d78e-ae26-441f-a143-0103eca8b62a",  # something
     )
 
     query = """
@@ -110,11 +109,10 @@ def test_query_inherit(graphapi_post: GraphAPIPost):
     assert response.errors is None
     assert response.data
 
-
     org_units = response.data["org_units"]["objects"]
     for org_unit in org_units:
         assert org_unit["current"]["managers"][0]["uuid"] == uuid
-        
+
     query2 = """
         query Read($child_uuids: [UUID!]) {
             managers(filter: { org_unit: { uuids: $child_uuids } }, inherit: true) {
@@ -135,8 +133,6 @@ def test_query_inherit(graphapi_post: GraphAPIPost):
 
     assert response2.errors is None
     assert response2.data
-
-
 
 
 @pytest.mark.integration_test
