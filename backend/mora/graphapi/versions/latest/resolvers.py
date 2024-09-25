@@ -496,6 +496,7 @@ async def manager_resolver(
                     * Is set: The result from calling `managers` with `inherit=True` on the parent of this organistion unit is returned.
 
                     Calling with `inherit=True` can help ensure that a manager is always found.
+                    - unless top level org_unit doesn't have a manager, which could be the case in med-orgs.
                     """
             )
         ),
