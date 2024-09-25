@@ -543,7 +543,10 @@ async def manager_resolver(
         info, OrganisationUnitFilter(uuids=kwargs["tilknyttedeenheder"])
     )
     if not org_units:
-        return []
+        # Return result instead of [], for the cases where top unit doesn't have a manager.
+        # This might be the case in med-orgs.
+        return result
+
     org_unit_as_list = list(flatten(org_units.values()))
     new_org_units = [org_unit.parent_uuid for org_unit in org_unit_as_list]
     return await manager_resolver(
