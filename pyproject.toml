@@ -14,7 +14,7 @@ keywords = ["os2mo"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-alembic = "^1.13.3"
+alembic = "^1.14.0"
 python-dateutil = "^2.8.2"
 # Version 2.9.x always starts a transaction when you connect to a database using a context manager.
 # See: https://stackoverflow.com/a/68112827
