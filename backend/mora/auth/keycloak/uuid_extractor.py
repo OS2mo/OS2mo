@@ -14,8 +14,6 @@ from structlog import get_logger
 from mora import common
 from mora.exceptions import ErrorCodes
 from mora.exceptions import HTTPException
-from mora.graphapi.versions.latest.inputs import EngagementCreateInput
-from mora.graphapi.versions.latest.inputs import OrganisationUnitCreateInput
 from mora.graphapi.versions.latest.permissions import CollectionPermissionType
 from mora.graphapi.versions.latest.permissions import Collections
 from mora.mapping import ASSOCIATED_ORG_UNITS_FIELD
@@ -321,7 +319,7 @@ async def get_entities_graphql(
 
         if collection == "org_unit":
             # Create requires ownership of the parent we are trying to insert under
-            if isinstance(input, OrganisationUnitCreateInput):
+            if permission_type == "create":
                 yield EntityType.ORG_UNIT, getattr(input, "parent", None)
                 return
             # Otherwise, changes always requires ownership of the org unit itself
@@ -331,36 +329,11 @@ async def get_entities_graphql(
             # must compare with the current parent in the database to figure out if it
             # was changed.
             if parent := getattr(input, "parent", None):
-                current = await _get_org_unit(uuid)
+                current = await _get_org_unit(getattr(input, "uuid"))
                 current_parent = PARENT_FIELD.get_uuid(current)
                 if str(parent) != current_parent:
                     yield EntityType.ORG_UNIT, parent
             return
-
-        # Terminate detail
-        # There isn't enough information available in terminate payloads to determine
-        # ownership, so we must fetch the related object from the database. To be
-        # honest, this should be the general strategy anyway - why do we trust user
-        # input?
-        if permission_type == "terminate":
-            org_function = await _get_org_function(getattr(input, "uuid"))
-            if org_unit_uuid := ASSOCIATED_ORG_UNITS_FIELD.get_uuid(org_function):
-                yield EntityType.ORG_UNIT, UUID(org_unit_uuid)
-            elif employee_uuid := USER_FIELD.get_uuid(org_function):
-                yield EntityType.EMPLOYEE, UUID(employee_uuid)
-            return
-
-        # Engagement ownership is determined by its current org unit, if there is one
-        if collection == "engagement" and not isinstance(input, EngagementCreateInput):
-            org_function = await _get_org_function(getattr(input, "uuid"))
-            if org_unit_uuid := ASSOCIATED_ORG_UNITS_FIELD.get_uuid(org_function):
-                yield EntityType.ORG_UNIT, UUID(org_unit_uuid)
-                return
-
-        # These details link both a person with an org unit, but ownership is only
-        # checked with regard to the org unit.
-        if collection in {"association", "engagement", "manager", "rolebinding"}:
-            yield EntityType.ORG_UNIT, getattr(input, "org_unit", None)
 
         if collection == "related_unit":
             # Related units have a single `origin` field and a list of `destination`s
@@ -370,14 +343,23 @@ async def get_entities_graphql(
                     yield EntityType.ORG_UNIT, destination
             return
 
-        # Even though some of the remaining object types (addresses, IT-users, leaves,
-        # and owners at time of writing) can reference both employees and org units, we
-        # short-circuit if an org unit is set, and care only about that.
+        # Even though most of the remaining object types (addresses,
+        # associations, engagements, IT-users, leaves, managers, owners and
+        # role-bindings, at time of writing) can reference both employees and
+        # org units, we prefer org units and short-circuit if that is set.
+        # Everything (except creates) requires ownership of both the existing
+        # database object as well as the new object from the input.
+        if permission_type != "create":
+            org_function = await _get_org_function(getattr(input, "uuid"))
+            if org_unit_str := ASSOCIATED_ORG_UNITS_FIELD.get_uuid(org_function):
+                yield EntityType.ORG_UNIT, UUID(org_unit_str)
+            elif person_str := USER_FIELD.get_uuid(org_function):
+                yield EntityType.EMPLOYEE, UUID(person_str)
+
+        # Existing database object. Again, we prefer org unit over person.
         if org_unit := getattr(input, "org_unit", None):
             yield EntityType.ORG_UNIT, org_unit
             return
-
-        # Finally, fallback to ownership of the person
         yield EntityType.EMPLOYEE, getattr(input, "employee", None)
         yield EntityType.EMPLOYEE, getattr(input, "person", None)
 
@@ -388,12 +370,12 @@ async def get_entities_graphql(
             yield entity_type, uuid
 
 
-async def _get_org_unit(uuid: UUID) -> dict:
+async def _get_org_unit(uuid: UUID) -> dict | None:
     c = common.get_connector()
     return await c.organisationenhed.get(uuid=uuid)
 
 
-async def _get_org_function(uuid: UUID) -> dict:
+async def _get_org_function(uuid: UUID) -> dict | None:
     c = common.get_connector()
     return await c.organisationfunktion.get(uuid=uuid)
 
