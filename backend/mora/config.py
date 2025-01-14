@@ -130,6 +130,19 @@ class Settings(BaseSettings):
     fetch_trigger_timeout: int = 5
     run_trigger_timeout: int = 5
 
+    # Phonenumber settings
+    phonenumber_default_region_code: str | None = Field(
+        None,
+        description=dedent(
+            """
+            The default dialing region code to use for parsing phonenumbers.
+
+            Should be a CLDR two-letter region-code following ISO 3166-1 alpha-2.
+            For instance "DK" or "GB", if left blank more validation errors may occur.
+            """
+        ),
+    )
+
     # AuditLog settings
     audit_readlog_enable: bool = Field(
         False,

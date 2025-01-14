@@ -43,6 +43,7 @@ sentry-sdk = {extras = ["fastapi"], version = "^1.34.0"}
 psycopg = "^3.1.13"
 service-person-stamdata-udvidet = "^1.0.3"
 fastramqpi = "^8"
+phonenumbers = "^8.13.52"
 
 [tool.poetry.group.dev.dependencies]
 requests-mock = "^1.11.0"
