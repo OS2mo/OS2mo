@@ -19,6 +19,8 @@ from sqlalchemy.sql.expression import Select
 from starlette_context import context
 from strawberry.types import Info
 
+from .actor import Actor
+from .actor import actor_uuid_to_actor
 from .filters import RegistrationFilter
 from .paged import CursorType
 from .paged import LimitType
@@ -103,6 +105,16 @@ class Registration:
         """
         )
     )
+
+    @strawberry.field(
+        description=dedent(
+            """\
+            Object for the actor (integration or user) who changed the data.
+            """
+        )
+    )
+    async def actor_object(self, root: "Registration", info: Info) -> Actor:
+        return await actor_uuid_to_actor(root.actor, info=info)
 
     # Name of the entity model
     model: str = strawberry.field(
@@ -227,7 +239,7 @@ async def registration_resolver(
                     value=OrganisationFunktionAttrEgenskaber.funktionsnavn.cast(Text),
                     else_="unknown",
                 ).label("model"),
-                *common_fields
+                *common_fields,
             ).where(
                 OrganisationFunktionAttrEgenskaber.organisationfunktion_registrering_id
                 == table.id
@@ -247,7 +259,7 @@ async def registration_resolver(
                 value=literal(table.__name__),
                 else_="unknown",
             ).label("model"),
-            *common_fields
+            *common_fields,
         )
 
     # Query all requested registation tables using a big union query

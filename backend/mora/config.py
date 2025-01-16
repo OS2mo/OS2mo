@@ -203,6 +203,8 @@ class Settings(BaseSettings):
 
     # Keycloak settings
     keycloak_schema: str = "https"
+    keycloak_admin_username: str = "admin"
+    keycloak_admin_password: str = "admin"
     keycloak_host: str = "keycloak"
     keycloak_port: int = 443
     keycloak_realm: str = "mo"
